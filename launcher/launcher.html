@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social Point Launcher</title>
+<style>
+  :root {
+    --bg: #f3ecd9;
+    --bg-2: #e6dcc0;
+    --card: #fffaf0;
+    --ink: #3b2a17;
+    --ink-soft: #7a6347;
+    --line: #d6c49c;
+    --accent: #6fa10f;
+    --accent-ink: #ffffff;
+    --accent-hover: #5c8a0a;
+    --run: #2f8a3c;
+    --stop: #9b8a72;
+    --err-bg: #fbe4df;
+    --err-ink: #8a2d1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1a14;
+      --bg-2: #15120e;
+      --card: #2a241b;
+      --ink: #f1e6cf;
+      --ink-soft: #b9a888;
+      --line: #4a3f2e;
+      --accent: #7fb81a;
+      --accent-ink: #12160a;
+      --accent-hover: #93cc2c;
+      --run: #5cc46b;
+      --stop: #8c7c64;
+      --err-bg: #3d1f18;
+      --err-ink: #f2b3a5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", "Lucida Grande", Tahoma, Verdana, sans-serif;
+    color: var(--ink);
+    background: radial-gradient(ellipse at top, var(--bg), var(--bg-2));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 16px;
+  }
+  h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: .3px; }
+  .sub { margin: 0 0 36px; color: var(--ink-soft); }
+  .games {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    width: 100%;
+    max-width: 760px;
+  }
+  .game {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(60, 40, 10, .12);
+  }
+  .logo { height: 110px; display: flex; align-items: center; margin-bottom: 12px; }
+  .logo img { max-height: 110px; max-width: 220px; }
+  .game h2 { margin: 0 0 8px; font-size: 20px; }
+  .status { font-size: 13px; color: var(--ink-soft); margin-bottom: 18px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--stop); }
+  .running .dot { background: var(--run); }
+  button.play {
+    width: 100%;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 12px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    cursor: pointer;
+  }
+  button.play:hover:not(:disabled) { background: var(--accent-hover); }
+  button.play:disabled { opacity: .65; cursor: progress; }
+  button.stop {
+    margin-top: 10px;
+    font: inherit;
+    font-size: 13px;
+    background: none;
+    border: 0;
+    color: var(--ink-soft);
+    text-decoration: underline;
+    cursor: pointer;
+    visibility: hidden;
+  }
+  .running button.stop { visibility: visible; }
+  .error {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--err-bg);
+    color: var(--err-ink);
+    font-size: 13px;
+    text-align: left;
+    width: 100%;
+    display: none;
+  }
+  .error.show { display: block; }
+  footer { margin-top: 36px; font-size: 12px; color: var(--ink-soft); text-align: center; max-width: 520px; }
+</style>
+</head>
+<body>
+  <h1>What do you want to play?</h1>
+  <p class="sub">Pick a game. Its server starts automatically.</p>
+
+  <div class="games">
+    <div class="game" id="socialemperors">
+      <div class="logo"><img src="/img/socialemperors.png" alt="Social Empires"></div>
+      <h2>Social Empires</h2>
+      <div class="status"><span class="dot"></span><span class="label">Checking…</span></div>
+      <button class="play">Play</button>
+      <button class="stop">Stop server</button>
+      <div class="error"></div>
+    </div>
+    <div class="game" id="socialwarriors">
+      <div class="logo"><img src="/img/socialwarriors.png" alt="Social Wars"></div>
+      <h2>Social Wars</h2>
+      <div class="status"><span class="dot"></span><span class="label">Checking…</span></div>
+      <button class="play">Play</button>
+      <button class="stop">Stop server</button>
+      <div class="error"></div>
+    </div>
+  </div>
+
+  <footer>Each game server opens in its own window. Use "Stop server" here, or just close that window, to stop it. Your progress is saved after every action.</footer>
+
+<script>
+  const busy = new Set();
+
+  function render(game) {
+    const card = document.getElementById(game.id);
+    if (!card) return;
+    card.classList.toggle("running", game.running);
+    card.classList.toggle("owned", game.owned);
+    const label = card.querySelector(".label");
+    const play = card.querySelector(".play");
+    if (busy.has(game.id)) return;
+    if (!game.installed) {
+      label.textContent = "Not found in this folder";
+      play.disabled = true;
+      return;
+    }
+    label.textContent = game.running ? "Server running" : "Server stopped";
+    play.disabled = false;
+    play.textContent = game.running ? "Play" : "Start & Play";
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch("/api/status");
+      const data = await r.json();
+      data.games.forEach(render);
+    } catch (e) { /* launcher closed */ }
+  }
+
+  async function call(action, id) {
+    const r = await fetch(`/api/${action}/${id}`, { method: "POST", headers: { "X-Launcher": "1" } });
+    return r.json();
+  }
+
+  function showError(card, message) {
+    const box = card.querySelector(".error");
+    box.textContent = message || "";
+    box.classList.toggle("show", !!message);
+  }
+
+  document.querySelectorAll(".game").forEach(card => {
+    const id = card.id;
+    const play = card.querySelector(".play");
+    const label = card.querySelector(".label");
+
+    play.addEventListener("click", async () => {
+      // Open the tab right away, while the click still counts as a user action (otherwise popup blockers stop it)
+      const tab = window.open("", "_blank");
+      if (tab) {
+        tab.document.title = "Starting " + card.querySelector("h2").textContent + "…";
+        tab.document.body.style.cssText = "font-family: Segoe UI, Tahoma, sans-serif; padding: 40px; background: #1e1a14; color: #f1e6cf";
+        tab.document.body.textContent = "Starting the server, the game opens in a moment…";
+      }
+      busy.add(id);
+      showError(card, "");
+      play.disabled = true;
+      play.textContent = "Starting server…";
+      label.textContent = "Starting…";
+      try {
+        const res = await call("start", id);
+        if (res.ok) {
+          if (tab && !tab.closed) {
+            tab.location.href = res.url;
+          } else {
+            showError(card, "Your browser blocked the new tab. Allow pop-ups for this page, or open " + res.url);
+          }
+        } else {
+          if (tab) tab.close();
+          showError(card, res.error);
+        }
+      } catch (e) {
+        if (tab) tab.close();
+        showError(card, "The launcher is not running. Start it again with \"Play Social Point.bat\".");
+      }
+      busy.delete(id);
+      refresh();
+    });
+
+    card.querySelector(".stop").addEventListener("click", async () => {
+      showError(card, "");
+      label.textContent = "Stopping…";
+      const res = await call("stop", id);
+      if (!res.ok) showError(card, res.error);
+      refresh();
+    });
+  });
+
+  refresh();
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>
